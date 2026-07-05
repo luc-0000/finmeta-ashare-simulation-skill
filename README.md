@@ -1,3 +1,3 @@
-# FinMeta A-Share Simulation Trading
+# FinMeta A-Share Simulation
 
-A-Share (A股) simulation trading CLI. Check market data, buy/sell stocks, and manage your virtual portfolio — all from the command line. See [SKILL.md](SKILL.md) for documentation.
+A股模拟交易工具，可安装到 OpenClaw 等 AI agent 中使用。支持买卖 A 股、查看行情、管理虚拟账户、查看盈亏。详见 [SKILL.md](SKILL.md)。
