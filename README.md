@@ -1,3 +1,3 @@
 # FinMeta A-Share Simulation
 
-A股模拟交易工具，可安装到 OpenClaw 等 AI agent 中使用。支持买卖 A 股、查看行情、管理虚拟账户、查看盈亏。详见 [SKILL.md](SKILL.md)。
+A-Share simulation trading tool for AI agents like OpenClaw. Trade A-shares, check market data, manage a virtual portfolio, and track P&L. See [SKILL.md](SKILL.md) for details.
