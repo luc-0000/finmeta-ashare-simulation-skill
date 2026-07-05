@@ -1,5 +1,5 @@
 ---
-name: a-share-trading
+name: finmeta-ashare-simulation-skill
 description: A-Share simulation trading. Supports market data (list_stocks/get_quote/kline), account (account/positions), trading (buy/sell), history (orders_history/buy_list/sell_list/balance_log/fee_log), and rules. Use when the user wants to check A-Share prices, analyze K-line charts, manage simulation accounts, buy/sell stocks, or query trade history.
 ---
 

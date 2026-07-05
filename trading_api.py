@@ -118,7 +118,10 @@ Examples:
         parser.print_help()
         sys.exit(0)
 
-    if not _load_token():
+    AUTH_ACTIONS = {"account", "positions", "buy", "sell", "orders_history",
+                    "buy_list", "sell_list", "balance_log", "fee_log"}
+
+    if not _load_token() and args.action in AUTH_ACTIONS:
         print("Missing API token. Get yours from https://fin-meta.net/profile, then:", file=sys.stderr)
         print("  python trading_api.py --token YOUR_TOKEN_HERE", file=sys.stderr)
         sys.exit(1)
