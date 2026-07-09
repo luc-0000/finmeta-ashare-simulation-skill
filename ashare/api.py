@@ -148,7 +148,7 @@ def _require_token():
     return token
 
 
-# ═══════════ 行情查询 (no account required) ═══════════
+# === Market Data (no auth) ===
 
 def list_stocks():
     return _get("/stocks")
@@ -168,53 +168,89 @@ def get_kline(stock_code: str, period: str = "1d", limit: int = 60):
     return _get(f"/stocks/{stock_code}/kline", {"period": period, "limit": min(limit, 200)})
 
 
-# ═══════════ 账户查询 (require account_id) ═══════════
+# === Account (requires account_id) ===
 
 def get_account(account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Get account overview (balance, market value, P/L).
+
+    Args:
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    aid = account_id if account_id is not None else _require_account_id()
     return _get(f"/accounts/{aid}")
 
 
 def get_positions(account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Get current positions with unrealized P/L.
+
+    Args:
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    aid = account_id if account_id is not None else _require_account_id()
     return _get(f"/accounts/{aid}/positions")
 
 
-# ═══════════ 交易操作 (require account_id) ═══════════
+# === Trading (requires account_id) ===
 
 def buy(stock_code: str, quantity: int, account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Buy shares (quantity must be multiple of 100).
+
+    Args:
+        stock_code: e.g. 600519.SH
+        quantity: number of shares, must be multiple of 100 (1 lot).
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    aid = account_id if account_id is not None else _require_account_id()
     return _post(f"/accounts/{aid}/orders/buy", {"stock_code": stock_code, "quantity": quantity})
 
 
 def sell(stock_code: str, quantity: int, account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Sell shares (quantity must be multiple of 100).
+
+    Args:
+        stock_code: e.g. 600519.SH
+        quantity: number of shares, must be multiple of 100 (1 lot).
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    aid = account_id if account_id is not None else _require_account_id()
     return _post(f"/accounts/{aid}/orders/sell", {"stock_code": stock_code, "quantity": quantity})
 
 
-# ═══════════ 历史记录 (require account_id) ═══════════
+# === History (requires account_id) ===
 
 def get_orders(limit: int = 50, account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Get recent trade orders.
+
+    Args:
+        limit: max results (default 50, max 200).
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    aid = account_id if account_id is not None else _require_account_id()
     return _get(f"/accounts/{aid}/orders", {"limit": min(limit, 200)})
 
 
 def get_buy_orders(page: int = 1, limit: int = 50, account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Get buy orders (paginated). account_id is optional."""
+    aid = account_id if account_id is not None else _require_account_id()
     return _get(f"/accounts/{aid}/orders", {"page": page, "limit": min(limit, 200), "side": "buy"})
 
 
 def get_sell_orders(page: int = 1, limit: int = 50, account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Get sell orders (paginated). account_id is optional."""
+    aid = account_id if account_id is not None else _require_account_id()
     return _get(f"/accounts/{aid}/orders", {"page": page, "limit": min(limit, 200), "side": "sell"})
 
 
 def get_balance_log(page: int = 1, limit: int = 50, account_id: int = None):
-    aid = account_id or _require_account_id()
+    """Get balance change log (paginated). account_id is optional."""
+    aid = account_id if account_id is not None else _require_account_id()
     return _get(f"/accounts/{aid}/balance-log", {"page": page, "limit": min(limit, 200)})
 
 
 def get_fee_log(page: int = 1, limit: int = 50, account_id: int = None):
+    """Get fee log — only buy/sell entries (paginated). account_id is optional."""
+    aid = account_id if account_id is not None else _require_account_id()
+    raw = _get(f"/accounts/{aid}/balance-log", {"page": page, "limit": min(limit, 200)})
     aid = account_id or _require_account_id()
     raw = _get(f"/accounts/{aid}/balance-log", {"page": page, "limit": min(limit, 200)})
     if raw.get("success") and raw["data"].get("data"):

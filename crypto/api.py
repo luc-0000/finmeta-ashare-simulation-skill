@@ -67,6 +67,28 @@ def _save_token(token):
     _save_config(cfg)
 
 
+def _load_account_id():
+    """Read simulation_account_id from env var or config.json."""
+    val = os.getenv("FINTOOLS_SIMULATION_ACCOUNT_ID")
+    if val:
+        try:
+            return int(val)
+        except ValueError:
+            pass
+    return _load_config().get("account_id")
+
+
+def _save_account_id(account_id: int):
+    cfg = _load_config()
+    cfg["account_id"] = account_id
+    _save_config(cfg)
+
+
+def _require_account_id():
+    """Read account_id from env/config, fall back to None (crypto auto-creates)."""
+    return _load_account_id()
+
+
 def _headers():
     return {"Authorization": f"Bearer {_load_token()}", "Content-Type": "application/json"}
 
@@ -118,18 +140,18 @@ def _require_token():
     return token
 
 
-# ═══════════ 行情查询 (no auth) ═══════════
+# === Market Data (no auth) ===
 
 def list_symbols():
-    """列出所有支持的加密货币交易对"""
+    """List all supported crypto trading pairs."""
     return _get("/symbols")
 
 
 def get_quotes(symbols):
-    """批量查询行情
+    """Batch query quotes for given symbols.
 
     Args:
-        symbols: 逗号分隔字符串或数组，如 "BTC/USDT,ETH/USDT"
+        symbols: comma-separated string or list, e.g. "BTC/USDT,ETH/USDT"
     """
     if isinstance(symbols, str):
         symbols = [s.strip() for s in symbols.split(",")]
@@ -137,53 +159,77 @@ def get_quotes(symbols):
 
 
 def get_kline(symbol: str, limit: int = 100):
-    """查询 K 线数据
+    """Query kline (OHLCV) for a symbol.
 
     Args:
-        symbol: 交易对，如 BTC/USDT
-        limit: 返回 K 线根数，最大 500
+        symbol: trading pair, e.g. BTC/USDT
+        limit: number of klines to return, max 500
     """
     return _get("/kline", {"symbol": symbol, "limit": min(limit, 500)})
 
 
-# ═══════════ 账户查询 ═══════════
+# === Account (requires account_id) ===
 
-def get_account():
-    """获取账户概览（余额、总市值、P/L 等）"""
-    _require_token()
-    return _get("/account")
-
-
-# ═══════════ 交易操作 ═══════════
-
-def buy(symbol: str, quantity: float):
-    """买入加密货币
+def get_account(account_id: int = None):
+    """Get account overview (balance, market value, P/L).
 
     Args:
-        symbol: 交易对，如 BTC/USDT
-        quantity: 买入数量（币本位，如 0.01 BTC）
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
     """
     _require_token()
-    return _post("/orders/buy", {"symbol": symbol, "quantity": quantity})
+    aid = account_id if account_id is not None else _require_account_id()
+    return _get(f"/account?account_id={aid}" if aid else "/account")
 
 
-def sell(symbol: str, quantity: float):
-    """卖出加密货币
+# === Trading (requires account_id) ===
+
+def buy(symbol: str, quantity: float, account_id: int = None):
+    """Buy crypto.
 
     Args:
-        symbol: 交易对，如 BTC/USDT
-        quantity: 卖出数量（币本位，如 0.01 BTC）
+        symbol: trading pair, e.g. BTC/USDT
+        quantity: amount in base currency, e.g. 0.01 BTC
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
     """
     _require_token()
-    return _post("/orders/sell", {"symbol": symbol, "quantity": quantity})
+    aid = account_id if account_id is not None else _require_account_id()
+    body = {"symbol": symbol, "quantity": quantity}
+    if aid:
+        body["account_id"] = aid
+    return _post("/orders/buy", body)
 
 
-# ═══════════ 历史记录 ═══════════
+def sell(symbol: str, quantity: float, account_id: int = None):
+    """Sell crypto.
 
-def get_orders(limit: int = 20):
-    """查询历史订单"""
+    Args:
+        symbol: trading pair, e.g. BTC/USDT
+        quantity: amount in base currency, e.g. 0.01 BTC
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
     _require_token()
-    return _get("/orders", {"limit": min(limit, 100)})
+    aid = account_id if account_id is not None else _require_account_id()
+    body = {"symbol": symbol, "quantity": quantity}
+    if aid:
+        body["account_id"] = aid
+    return _post("/orders/sell", body)
+
+
+# === History (requires account_id) ===
+
+def get_orders(limit: int = 20, account_id: int = None):
+    """Query trade history.
+
+    Args:
+        limit: max results (default 20, max 100).
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    _require_token()
+    aid = account_id if account_id is not None else _require_account_id()
+    params = {"limit": min(limit, 100)}
+    if aid:
+        params["account_id"] = aid
+    return _get("/orders", params)
 
 
 # ═══════════ CLI ═══════════
