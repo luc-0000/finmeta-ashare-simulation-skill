@@ -13,9 +13,17 @@ Backend default: `https://fin-meta.net`. Override via `FINTOOLS_API_BASE` env va
 | kline | GET | /api/v1/ashare/stocks/{code}/kline?period=1d&limit=60 |
 | rules | GET | /api/v1/ashare/rules |
 
+### Account List (Bearer Token required, no Account ID)
+
+| Action | HTTP | Path |
+|--------|------|------|
+| list_my_accounts | GET | /api/v1/ashare/accounts?lightweight=true |
+
+Returns `{data: {accounts: [{id, name, market}, ...]}}`. Use this to let the user pick which account to trade with.
+
 ### Account / Trading (Bearer Token + Account ID required)
 
-All paths include `{account_id}` — get yours from My Simulation page.
+All paths include `{account_id}` — get yours from My Simulation page or the lightweight list above.
 
 | Action | HTTP | Path | Body |
 |--------|------|------|------|

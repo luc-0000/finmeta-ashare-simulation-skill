@@ -93,11 +93,20 @@ Before running any command, check for credentials:
 
 1. Check if `FINTOOLS_API_TOKEN` env var is set, or if `config.json` has a `token` field
 2. Check if `FINTOOLS_SIMULATION_ACCOUNT_ID` env var is set, or if `config.json` has an `account_id` field
-3. If either is missing:
-   - **Token**: Ask the user: *"I need your API token to access Fintools. Get it from your Profile page (user dropdown → Profile → Access Token)."*
-   - **Account ID**: Ask the user: *"Which simulation account should I trade with? Go to My Simulation, find the account you want to use, and copy its ID (click the ID chip on the account card). What's the account ID?"*
-   - Save both with: `python trading_api.py --token <token> --account-id <id>`
-   - Confirm it works with `python trading_api.py --action account`
+3. If token is set but account_id is missing:
+   - Call the lightweight API to list available accounts:
+     ```
+     curl -H "Authorization: Bearer ${FINTOOLS_API_TOKEN}" \
+       https://fin-meta.net/api/v1/ashare/accounts?lightweight=true
+     ```
+   - The response contains `{data: {accounts: [{id, name, market}, ...]}}`
+   - Present the list to the user: *"Here are your simulation accounts: (1) Account #123 — A-Share, (2) Test Account #456 — Crypto. Which one should I trade with? Give me the account ID."*
+   - User picks one → save with `python trading_api.py --account-id <id>`
+4. If token is also missing:
+   - Ask the user: *"I need your API token to access Fintools. Get it from your Profile page (user dropdown → Profile → Access Token)."*
+   - After getting the token, save it with `python trading_api.py --token <token>`
+   - Go back to step 3 to set up account ID
+5. Confirm it works with `python trading_api.py --action account`
 
 ### Typical Flow
 
