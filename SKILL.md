@@ -1,131 +1,108 @@
 ---
-name: finmeta-ashare-simulation-skill
-description: A-Share simulation trading. Supports market data (list_stocks/get_quote/kline), account (account/positions), trading (buy/sell), history (orders_history/buy_list/sell_list/balance_log/fee_log), and rules. Use when the user wants to check A-Share prices, analyze K-line charts, manage simulation accounts, buy/sell stocks, or query trade history.
+name: finmeta-simulation-skill
+description: Unified simulation trading skill. Supports A-Share and Crypto markets — market data, account queries, trading (buy/sell), and order history. Use when the user wants to check prices, analyze charts, manage simulation accounts, or place trades in either market.
 ---
 
-# A-Share Simulation Trading
+# FinMeta Simulation Trading
+
+Covers **A-Share** (`ashare/`) and **Crypto** (`crypto/`). Each sub-module has its own `api.py` and `api_reference.md`.
 
 ## Quick Start
 
-Get your API token from **Profile** (user dropdown → Profile) and your **Account ID** from **My Simulation** (click the ID chip to copy). Then:
-
 ```bash
 export FINTOOLS_API_TOKEN="your-token"
-export FINTOOLS_SIMULATION_ACCOUNT_ID=123
+export FINTOOLS_SIMULATION_ACCOUNT_ID=123   # A-Share only
 
-python trading_api.py --action get_quote --symbols "600519.SH"
-python trading_api.py --action kline --stock-code 600519.SH
-python trading_api.py --action account
-python trading_api.py --action buy --stock-code 600519.SH --quantity 100
+# A-Share
+python ashare/api.py --action get_quote --symbols "600519.SH"
+python ashare/api.py --action account
+python ashare/api.py --action buy --symbol 600519.SH --quantity 100
+
+# Crypto
+python crypto/api.py --action get_quotes --symbols "BTC/USDT,ETH/USDT"
+python crypto/api.py --action account
+python crypto/api.py --action buy --symbol BTC/USDT --quantity 0.01
 ```
-
-The script auto-installs `requests` if missing. Nothing else to do.
 
 ## Setup
 
-Two pieces of config, two ways:
-
 ```bash
-# env var (recommended)
-export FINTOOLS_API_TOKEN="your-token"
-export FINTOOLS_SIMULATION_ACCOUNT_ID=123
-
-# one-time save to config.json
-python trading_api.py --token your-token --account-id 123
+# Save credentials (shared config.json at skill root)
+python ashare/api.py --token YOUR_TOKEN --account-id 123
+python crypto/api.py --token YOUR_TOKEN
 ```
 
 - **Token**: Profile page → Access Token
-- **Account ID**: My Simulation → click the ID chip on any account card to copy
+- **Account ID** (A-Share only): My Simulation → click ID chip to copy
 
 ## Tools
 
-### Market Data
+### A-Share (`ashare/api.py`)
 
 | Action | Command |
 |--------|---------|
 | Stock list | `--action list_stocks` |
 | Quote | `--action get_quote --symbols "600519.SH"` |
-| K-line | `--action kline --stock-code 600519.SH` |
-
-### Account
-
-| Action | Command |
-|--------|---------|
+| K-line | `--action kline --symbol 600519.SH` |
 | Account | `--action account` |
 | Positions | `--action positions` |
-
-### Trading
-
-| Action | Command |
-|--------|---------|
-| Buy | `--action buy --stock-code 600519.SH --quantity 100` |
-| Sell | `--action sell --stock-code 600519.SH --quantity 100` |
-
-### History
-
-| Action | Command |
-|--------|---------|
-| All orders | `--action orders_history` |
-| Buy history | `--action buy_list` |
-| Sell history | `--action sell_list` |
+| Buy | `--action buy --symbol 600519.SH --quantity 100` |
+| Sell | `--action sell --symbol 600519.SH --quantity 100` |
+| Orders | `--action orders` |
 | Balance log | `--action balance_log` |
 | Fee log | `--action fee_log` |
+| Rules | `--action rules` |
 
-### Rules
+### Crypto (`crypto/api.py`)
 
 | Action | Command |
 |--------|---------|
-| Trading rules | `--action rules` |
-
-## Rules Summary
-
-- Lot size: 100 shares, T+1 settlement
-- Price limits: ±10% main board, ±20% ChiNext/STAR, ±30% Beijing Exchange
-- Commission: 0.025% (min ¥5), Stamp tax: 0.05% (sell only)
-- Max ¥500,000 per order, 200 orders/day
-- Initial balance: ¥1,000,000
+| Symbol list | `--action list_symbols` |
+| Quotes | `--action get_quotes --symbols "BTC/USDT"` |
+| K-line | `--action kline --symbol BTC/USDT` |
+| Account | `--action account` |
+| Buy | `--action buy --symbol BTC/USDT --quantity 0.01` |
+| Sell | `--action sell --symbol BTC/USDT --quantity 0.01` |
+| Orders | `--action orders` |
 
 ## Agent Notes
 
 ### First Run — Token & Account Setup
 
-Before running any command, check for credentials:
-
-1. Check if `FINTOOLS_API_TOKEN` env var is set, or if `config.json` has a `token` field
-2. Check if `FINTOOLS_SIMULATION_ACCOUNT_ID` env var is set, or if `config.json` has an `account_id` field
-3. If token is set but account_id is missing:
-   - Call the lightweight API to list available accounts:
-     ```
-     curl -H "Authorization: Bearer ${FINTOOLS_API_TOKEN}" \
-       https://fin-meta.net/api/v1/ashare/accounts?lightweight=true
-     ```
-   - The response contains `{data: {accounts: [{id, name, market}, ...]}}`
-   - Present the list to the user: *"Here are your simulation accounts: (1) Account #123 — A-Share, (2) Test Account #456 — Crypto. Which one should I trade with? Give me the account ID."*
-   - User picks one → save with `python trading_api.py --account-id <id>`
-4. If token is also missing:
-   - Ask the user: *"I need your API token to access Fintools. Get it from your Profile page (user dropdown → Profile → Access Token)."*
-   - After getting the token, save it with `python trading_api.py --token <token>`
-   - Go back to step 3 to set up account ID
-5. Confirm it works with `python trading_api.py --action account`
+1. Check if `FINTOOLS_API_TOKEN` env var is set, or `config.json` has `token`
+2. For A-Share: check `FINTOOLS_SIMULATION_ACCOUNT_ID` env var or `config.json` `account_id`
+3. If token is missing:
+   - Ask: *"I need your API token. Get it from Profile → Access Token."*
+   - Save with: `python ashare/api.py --token <token>`
+4. If A-Share account_id is missing (but token is set):
+   - List accounts: `curl -H "Authorization: Bearer $TOKEN" https://fin-meta.net/api/v1/ashare/accounts?lightweight=true`
+   - Present the list: *"Here are your accounts: (1) Account #123 — A-Share. Which one?"*
+   - Save with: `python ashare/api.py --account-id <id>`
+5. Crypto does not need account_id — it auto-resolves from your user.
 
 ### Typical Flow
 
 ```bash
-python trading_api.py --action get_quote --symbols "600519.SH"
-python trading_api.py --action kline --stock-code 600519.SH
-python trading_api.py --action account
-python trading_api.py --action buy --stock-code 600519.SH --quantity 100
-python trading_api.py --action orders_history
+# A-Share
+python ashare/api.py --action get_quote --symbols "600519.SH"
+python ashare/api.py --action account
+python ashare/api.py --action buy --symbol 600519.SH --quantity 100
+
+# Crypto
+python crypto/api.py --action get_quotes --symbols "BTC/USDT"
+python crypto/api.py --action account
+python crypto/api.py --action buy --symbol BTC/USDT --quantity 0.01
 ```
 
 ### Python Import (Agent Code)
 
 ```python
-from finmeta_ashare_simulation_skill import buy_stock, get_account_snapshot
+from finmeta_simulation_skill.ashare import buy as ashare_buy, get_account as ashare_account
+from finmeta_simulation_skill.crypto import buy as crypto_buy, get_account as crypto_account
 
-# Each function accepts an optional account_id parameter
-result = buy_stock("600519.SH", 100, account_id=123)
-snapshot = get_account_snapshot(account_id=123)
+# A-Share — account_id optional (reads from env var / config.json)
+result = ashare_buy("600519.SH", 100, account_id=123)
+
+# Crypto — no account_id needed
+result = crypto_buy("BTC/USDT", 0.01)
 ```
-
-When `account_id` is omitted, the function reads from `FINTOOLS_SIMULATION_ACCOUNT_ID` env var or `config.json`.

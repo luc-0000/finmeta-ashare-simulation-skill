@@ -1,35 +1,27 @@
 #!/usr/bin/env python3
 """
-A-Share simulation trading skill (v3 — per-account routing).
+A-Share simulation trading (v3 — per-account routing).
 
-Two entry points share the same business logic (SSOT):
+Used via the unified skill:
+    from finmeta_simulation_skill.ashare import buy_stock, get_account_snapshot
 
-1. Python import (for LLM tool-calling agents):
+Or CLI (from skill root):
+    python ashare/api.py --action account
+    python ashare/api.py --action buy --symbol 600519.SH --quantity 100
 
-    from skills.finmeta_ashare_simulation_skill import (
-        list_selectable_stocks, buy_stock, get_account_snapshot,
-    )
-
-2. CLI:
-
-    python trading_api.py --action account
-    python trading_api.py --action buy --stock-code 600519.SH --quantity 100
-
-Setup: set FINTOOLS_API_TOKEN + FINTOOLS_SIMULATION_ACCOUNT_ID env vars
-       (from Profile page + My Simulation page).
+Env vars: FINTOOLS_API_TOKEN, FINTOOLS_SIMULATION_ACCOUNT_ID
 """
 
 import argparse, json, os, sys
 from pathlib import Path
 
-SKILL_DIR = Path(__file__).resolve().parent
+SKILL_DIR = Path(__file__).resolve().parent.parent
 CONFIG_FILE = SKILL_DIR / "config.json"
 API_BASE = os.getenv("FINTOOLS_API_BASE", "https://fin-meta.net")
 API_PREFIX = "/api/v1/ashare"
 
 
 def _ensure_requests():
-    """Auto-install requests if not available."""
     try:
         import requests  # noqa: F811
         return requests
@@ -76,7 +68,6 @@ def _save_token(token):
 
 
 def _load_account_id():
-    """Read simulation_account_id from env var or config.json."""
     val = os.getenv("FINTOOLS_SIMULATION_ACCOUNT_ID")
     if val:
         try:
@@ -132,33 +123,38 @@ def _handle_error(e):
 
 
 def _require_account_id():
-    """Raise SystemExit if no account_id configured."""
     aid = _load_account_id()
     if not aid:
         print(
             "Missing simulation account ID.\n"
             "Get yours from https://fin-meta.net/my/simulation, then:\n"
-            "  python trading_api.py --account-id YOUR_ACCOUNT_ID\n"
-            "Or set env var: export FINTOOLS_SIMULATION_ACCOUNT_ID=YOUR_ID",
+            "  python ashare/api.py --account-id YOUR_ACCOUNT_ID\n"
+            "Or set: export FINTOOLS_SIMULATION_ACCOUNT_ID=YOUR_ID",
             file=sys.stderr,
         )
         sys.exit(1)
     return aid
 
 
+def _require_token():
+    token = _load_token()
+    if not token:
+        print(
+            "Missing API token. Get yours from https://fin-meta.net/profile, then:\n"
+            "  python ashare/api.py --token YOUR_TOKEN",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return token
+
+
 # ═══════════ 行情查询 (no account required) ═══════════
 
-def list_selectable_stocks():
-    """查询可选股票列表及最新行情"""
+def list_stocks():
     return _get("/stocks")
 
 
-def get_quote_by_symbols(symbols):
-    """批量查询指定股票代码的最新行情
-
-    Args:
-        symbols: 股票代码数组或逗号分隔的字符串，如 "600519.SH" 或 ["600519.SH", "000001.SZ"]
-    """
+def get_quote(symbols):
     if isinstance(symbols, str):
         symbols = [s.strip() for s in symbols.split(",")]
     return _get("/stocks/quotes", {"symbols": ",".join(symbols)})
@@ -167,86 +163,58 @@ def get_quote_by_symbols(symbols):
 _PERIOD_ALIASES = {"day": "1d", "daily": "1d", "1d": "1d"}
 
 
-def get_stock_kline(stock_code: str, period: str = "1d", limit: int = 60):
-    """查询指定股票的K线走势数据
-
-    Args:
-        stock_code: 股票代码，如 600519.SH
-        period: 周期，'1d' / 'day' / 'daily' 都接受，normalize 到 backend 要求的 '1d'
-        limit: 返回K线根数，最大 200
-    """
+def get_kline(stock_code: str, period: str = "1d", limit: int = 60):
     period = _PERIOD_ALIASES.get(period, period)
     return _get(f"/stocks/{stock_code}/kline", {"period": period, "limit": min(limit, 200)})
 
 
 # ═══════════ 账户查询 (require account_id) ═══════════
 
-def get_account_snapshot(account_id: int = None):
-    """获取单个账户详情（余额、总市值、总资产等）"""
+def get_account(account_id: int = None):
     aid = account_id or _require_account_id()
     return _get(f"/accounts/{aid}")
 
 
 def get_positions(account_id: int = None):
-    """查询当前持仓列表及浮动盈亏"""
     aid = account_id or _require_account_id()
     return _get(f"/accounts/{aid}/positions")
 
 
 # ═══════════ 交易操作 (require account_id) ═══════════
 
-def buy_stock(stock_code: str, quantity: int, account_id: int = None):
-    """买入股票
-
-    Args:
-        stock_code: 股票代码，如 600519.SH
-        quantity: 买入数量（股），必须 100 的整数倍
-        account_id: 模拟账户 ID（可选，不传则用全局配置）
-    """
+def buy(stock_code: str, quantity: int, account_id: int = None):
     aid = account_id or _require_account_id()
     return _post(f"/accounts/{aid}/orders/buy", {"stock_code": stock_code, "quantity": quantity})
 
 
-def sell_stock(stock_code: str, quantity: int, account_id: int = None):
-    """卖出股票
-
-    Args:
-        stock_code: 股票代码，如 600519.SH
-        quantity: 卖出数量（股），必须 100 的整数倍
-        account_id: 模拟账户 ID（可选，不传则用全局配置）
-    """
+def sell(stock_code: str, quantity: int, account_id: int = None):
     aid = account_id or _require_account_id()
     return _post(f"/accounts/{aid}/orders/sell", {"stock_code": stock_code, "quantity": quantity})
 
 
 # ═══════════ 历史记录 (require account_id) ═══════════
 
-def get_orders_history(limit: int = 50, account_id: int = None):
-    """查询所有历史订单"""
+def get_orders(limit: int = 50, account_id: int = None):
     aid = account_id or _require_account_id()
     return _get(f"/accounts/{aid}/orders", {"limit": min(limit, 200)})
 
 
-def get_buy_list(page: int = 1, limit: int = 50, account_id: int = None):
-    """查询买入订单（分页）"""
+def get_buy_orders(page: int = 1, limit: int = 50, account_id: int = None):
     aid = account_id or _require_account_id()
     return _get(f"/accounts/{aid}/orders", {"page": page, "limit": min(limit, 200), "side": "buy"})
 
 
-def get_sell_list(page: int = 1, limit: int = 50, account_id: int = None):
-    """查询卖出订单（分页）"""
+def get_sell_orders(page: int = 1, limit: int = 50, account_id: int = None):
     aid = account_id or _require_account_id()
     return _get(f"/accounts/{aid}/orders", {"page": page, "limit": min(limit, 200), "side": "sell"})
 
 
 def get_balance_log(page: int = 1, limit: int = 50, account_id: int = None):
-    """查询资金流水（分页）"""
     aid = account_id or _require_account_id()
     return _get(f"/accounts/{aid}/balance-log", {"page": page, "limit": min(limit, 200)})
 
 
 def get_fee_log(page: int = 1, limit: int = 50, account_id: int = None):
-    """查询手续费流水（只含 buy/sell 类型）"""
     aid = account_id or _require_account_id()
     raw = _get(f"/accounts/{aid}/balance-log", {"page": page, "limit": min(limit, 200)})
     if raw.get("success") and raw["data"].get("data"):
@@ -255,47 +223,26 @@ def get_fee_log(page: int = 1, limit: int = 50, account_id: int = None):
     return raw
 
 
-# ═══════════ 交易规则 (no account required) ═══════════
-
-def get_trading_rules():
-    """查询交易规则（费率、涨跌停、手数等）"""
+def get_rules():
     return _get("/rules")
 
 
-# ═══════════ CLI 入口（SSOT：分派到上述函数） ═══════════
+# ═══════════ CLI ═══════════
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="A-Share simulation trading CLI (v3 — per-account)",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Setup:
-  export FINTOOLS_API_TOKEN="your-token"              # from https://fin-meta.net/profile
-  export FINTOOLS_SIMULATION_ACCOUNT_ID=123           # from https://fin-meta.net/my/simulation
-  python trading_api.py --action account               # verify it works
-
-  Or one-time save:
-  python trading_api.py --token YOUR_TOKEN --account-id 123
-
-Examples:
-  Market:  --action list_stocks | get_quote --symbols "600519.SH" | kline --stock-code 600519.SH
-  Account: --action account | positions
-  Trading: --action buy|sell --stock-code 600519.SH --quantity 100
-  History: --action orders_history | buy_list | sell_list | balance_log | fee_log
-        """,
-    )
+    parser = argparse.ArgumentParser(description="A-Share simulation trading CLI (v3)")
     parser.add_argument("--action", required=False, default="")
-    parser.add_argument("--stock-code")
     parser.add_argument("--symbols")
+    parser.add_argument("--symbol", dest="stock_code")  # unified --symbol alias
+    parser.add_argument("--stock-code")
     parser.add_argument("--quantity", type=int)
-    parser.add_argument("--period", default="1d", choices=["1d"])
+    parser.add_argument("--period", default="1d")
     parser.add_argument("--limit", type=int, default=60)
     parser.add_argument("--page", type=int, default=1)
-    parser.add_argument("--token", help="Set API token and save to config.json")
-    parser.add_argument("--account-id", type=int, help="Set simulation account ID and save to config.json")
+    parser.add_argument("--token", help="Save API token to config.json")
+    parser.add_argument("--account-id", type=int, help="Save simulation account ID to config.json")
     args = parser.parse_args()
 
-    # One-time config save
     if args.token or args.account_id:
         if args.token:
             _save_token(args.token)
@@ -310,56 +257,40 @@ Examples:
         parser.print_help()
         sys.exit(0)
 
-    NO_ACCOUNT_ACTIONS = {"list_stocks", "get_quote", "kline", "rules"}
-    AUTH_ACTIONS = {"account", "positions", "buy", "sell", "orders_history",
-                    "buy_list", "sell_list", "balance_log", "fee_log"}
+    AUTH_ACTIONS = {"account", "positions", "buy", "sell", "orders",
+                    "buy_orders", "sell_orders", "balance_log", "fee_log"}
 
-    if not _load_token() and args.action in AUTH_ACTIONS:
-        print("Missing API token. Get yours from https://fin-meta.net/profile, then:", file=sys.stderr)
-        print("  python trading_api.py --token YOUR_TOKEN_HERE", file=sys.stderr)
-        sys.exit(1)
+    if args.action in AUTH_ACTIONS:
+        _require_token()
 
-    if args.action in AUTH_ACTIONS and args.action not in NO_ACCOUNT_ACTIONS:
-        _require_account_id()
+    code = args.stock_code or args.symbol
 
     if args.action == "list_stocks":
-        result = list_selectable_stocks()
+        result = list_stocks()
     elif args.action == "get_quote":
-        if not args.symbols:
-            result = {"success": False, "error": "missing --symbols"}
-        else:
-            result = get_quote_by_symbols(args.symbols)
+        result = get_quote(args.symbols) if args.symbols else {"success": False, "error": "missing --symbols"}
     elif args.action == "kline":
-        if not args.stock_code:
-            result = {"success": False, "error": "missing --stock-code"}
-        else:
-            result = get_stock_kline(args.stock_code, args.period, args.limit)
+        result = get_kline(code, args.period, args.limit) if code else {"success": False, "error": "missing --symbol"}
     elif args.action == "account":
-        result = get_account_snapshot()
+        result = get_account()
     elif args.action == "positions":
         result = get_positions()
     elif args.action == "buy":
-        if not args.stock_code or not args.quantity:
-            result = {"success": False, "error": "missing --stock-code or --quantity"}
-        else:
-            result = buy_stock(args.stock_code, args.quantity)
+        result = buy(code, args.quantity) if code and args.quantity else {"success": False, "error": "missing --symbol or --quantity"}
     elif args.action == "sell":
-        if not args.stock_code or not args.quantity:
-            result = {"success": False, "error": "missing --stock-code or --quantity"}
-        else:
-            result = sell_stock(args.stock_code, args.quantity)
-    elif args.action == "orders_history":
-        result = get_orders_history(args.limit)
-    elif args.action == "buy_list":
-        result = get_buy_list(args.page, args.limit)
-    elif args.action == "sell_list":
-        result = get_sell_list(args.page, args.limit)
+        result = sell(code, args.quantity) if code and args.quantity else {"success": False, "error": "missing --symbol or --quantity"}
+    elif args.action == "orders":
+        result = get_orders(args.limit)
+    elif args.action == "buy_orders":
+        result = get_buy_orders(args.page, args.limit)
+    elif args.action == "sell_orders":
+        result = get_sell_orders(args.page, args.limit)
     elif args.action == "balance_log":
         result = get_balance_log(args.page, args.limit)
     elif args.action == "fee_log":
         result = get_fee_log(args.page, args.limit)
     elif args.action == "rules":
-        result = get_trading_rules()
+        result = get_rules()
     else:
         result = {"success": False, "error": f"unknown action: {args.action}"}
 
