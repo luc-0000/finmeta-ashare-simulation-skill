@@ -61,9 +61,12 @@ python crypto/api.py --token YOUR_TOKEN
 | Quotes | `--action get_quotes --symbols "BTC/USDT"` |
 | K-line | `--action kline --symbol BTC/USDT` |
 | Account | `--action account` |
+| Positions | `--action positions` |
 | Buy | `--action buy --symbol BTC/USDT --quantity 0.01` |
 | Sell | `--action sell --symbol BTC/USDT --quantity 0.01` |
 | Orders | `--action orders` |
+| Balance log | `--action balance_log` |
+| Rules | `--action rules` |
 
 ## Agent Notes
 

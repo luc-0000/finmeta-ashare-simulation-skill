@@ -215,7 +215,28 @@ def sell(symbol: str, quantity: float, account_id: int = None):
     return _post("/orders/sell", body)
 
 
+# === Rules (no auth) ===
+
+def get_rules():
+    """Get crypto trading rules (min order size, commission, etc.)."""
+    return _get("/rules")
+
+
 # === History (requires account_id) ===
+
+def get_positions(account_id: int = None):
+    """Get current holdings with unrealized P/L.
+
+    Args:
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    _require_token()
+    aid = account_id if account_id is not None else _require_account_id()
+    params = {}
+    if aid:
+        params["account_id"] = aid
+    return _get("/positions", params)
+
 
 def get_orders(limit: int = 20, account_id: int = None):
     """Query trade history.
@@ -230,6 +251,22 @@ def get_orders(limit: int = 20, account_id: int = None):
     if aid:
         params["account_id"] = aid
     return _get("/orders", params)
+
+
+def get_balance_log(page: int = 1, limit: int = 50, account_id: int = None):
+    """Get balance change log (paginated).
+
+    Args:
+        page: page number (1-indexed).
+        limit: max results per page (default 50, max 200).
+        account_id: optional — reads from FINTOOLS_SIMULATION_ACCOUNT_ID env var if omitted.
+    """
+    _require_token()
+    aid = account_id if account_id is not None else _require_account_id()
+    params = {"page": page, "limit": min(limit, 200)}
+    if aid:
+        params["account_id"] = aid
+    return _get("/balance-log", params)
 
 
 # ═══════════ CLI ═══════════
@@ -254,7 +291,7 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    AUTH_ACTIONS = {"account", "buy", "sell", "orders"}
+    AUTH_ACTIONS = {"account", "buy", "sell", "orders", "positions", "balance_log"}
 
     if args.action in AUTH_ACTIONS:
         _require_token()
@@ -267,12 +304,18 @@ def main():
         result = get_kline(args.symbol, args.limit) if args.symbol else {"success": False, "error": "missing --symbol"}
     elif args.action == "account":
         result = get_account()
+    elif args.action == "positions":
+        result = get_positions()
     elif args.action == "buy":
         result = buy(args.symbol, args.quantity) if args.symbol and args.quantity else {"success": False, "error": "missing --symbol or --quantity"}
     elif args.action == "sell":
         result = sell(args.symbol, args.quantity) if args.symbol and args.quantity else {"success": False, "error": "missing --symbol or --quantity"}
     elif args.action == "orders":
         result = get_orders(args.limit)
+    elif args.action == "balance_log":
+        result = get_balance_log()
+    elif args.action == "rules":
+        result = get_rules()
     else:
         result = {"success": False, "error": f"unknown action: {args.action}"}
 

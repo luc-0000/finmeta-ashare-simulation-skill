@@ -251,8 +251,6 @@ def get_fee_log(page: int = 1, limit: int = 50, account_id: int = None):
     """Get fee log — only buy/sell entries (paginated). account_id is optional."""
     aid = account_id if account_id is not None else _require_account_id()
     raw = _get(f"/accounts/{aid}/balance-log", {"page": page, "limit": min(limit, 200)})
-    aid = account_id or _require_account_id()
-    raw = _get(f"/accounts/{aid}/balance-log", {"page": page, "limit": min(limit, 200)})
     if raw.get("success") and raw["data"].get("data"):
         items = raw["data"]["data"].get("items", [])
         raw["data"]["items"] = [x for x in items if x.get("reason") in ("buy", "sell")]
