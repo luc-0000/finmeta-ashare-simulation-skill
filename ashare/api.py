@@ -160,12 +160,12 @@ def get_quote(symbols):
     return _get("/stocks/quotes", {"symbols": ",".join(symbols)})
 
 
-_PERIOD_ALIASES = {"day": "1d", "daily": "1d", "1d": "1d"}
+_PERIOD_ALIASES = {"day": "1d", "daily": "1d", "1d": "1d", "5m": "5m"}
 
 
 def get_kline(stock_code: str, period: str = "1d", limit: int = 60):
     period = _PERIOD_ALIASES.get(period, period)
-    return _get(f"/stocks/{stock_code}/kline", {"period": period, "limit": min(limit, 200)})
+    return _get(f"/stocks/{stock_code}/kline", {"period": period, "limit": limit})
 
 
 # === Account (requires account_id) ===
