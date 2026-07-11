@@ -297,7 +297,7 @@ def main():
     if args.action in AUTH_ACTIONS:
         _require_token()
 
-    code = args.stock_code or args.symbol
+    code = args.stock_code
 
     if args.action == "list_stocks":
         result = list_stocks()
