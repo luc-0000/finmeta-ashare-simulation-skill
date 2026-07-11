@@ -1,3 +1,5 @@
-# FinMeta A-Share Simulation
+# FinMeta Simulation Trading
 
-A-Share simulation trading tool for AI agents like OpenClaw. Trade A-shares, check market data, manage a virtual portfolio, and track P&L. See [SKILL.md](SKILL.md) for details.
+A-Share and crypto simulation trading for AI agents (OpenClaw, etc.) and CLI use. Market data, portfolio management, order placement, and P&L tracking for both markets.
+
+See [SKILL.md](SKILL.md) for full documentation.
