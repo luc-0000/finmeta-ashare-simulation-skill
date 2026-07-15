@@ -5,7 +5,7 @@ description: Unified simulation trading skill. Supports A-Share and Crypto marke
 
 # FinMeta Simulation Trading
 
-Covers **A-Share** (`ashare/`) and **Crypto** (`crypto/`). Each sub-module has its own `api.py` and `api_reference.md`.
+Covers **A-Share** (`ashare/`), **Crypto** (`crypto/`), and **US Stock** (`usstock/`). Each sub-module has its own `api.py` and `api_reference.md`.
 
 ## Quick Start
 
@@ -22,6 +22,11 @@ python ashare/api.py --action buy --symbol 600519.SH --quantity 100
 python crypto/api.py --action get_quotes --symbols "BTC/USDT,ETH/USDT"
 python crypto/api.py --action account
 python crypto/api.py --action buy --symbol BTC/USDT --quantity 0.01
+
+# US Stock
+python usstock/api.py --action get_quotes --symbols "AAPL,MSFT"
+python usstock/api.py --action account
+python usstock/api.py --action buy --symbol AAPL --quantity 10
 ```
 
 ## Setup
@@ -30,6 +35,7 @@ python crypto/api.py --action buy --symbol BTC/USDT --quantity 0.01
 # Save credentials (shared config.json at skill root)
 python ashare/api.py --token YOUR_TOKEN --account-id 123
 python crypto/api.py --token YOUR_TOKEN
+python usstock/api.py --token YOUR_TOKEN
 ```
 
 - **Token**: Profile page → Access Token
@@ -68,6 +74,23 @@ python crypto/api.py --token YOUR_TOKEN
 | Balance log | `--action balance_log` |
 | Rules | `--action rules` |
 
+### US Stock (`usstock/api.py`)
+
+| Action | Command |
+|--------|---------|
+| Symbol list | `--action list_symbols` |
+| Quotes | `--action get_quotes --symbols "AAPL"` |
+| K-line | `--action kline --symbol AAPL` |
+| Account | `--action account` |
+| Positions | `--action positions` |
+| Buy | `--action buy --symbol AAPL --quantity 10` |
+| Sell | `--action sell --symbol AAPL --quantity 10` |
+| Orders | `--action orders` |
+| Balance log | `--action balance_log` |
+| Rules | `--action rules` |
+
+**US Stock notes**: T+0, lot_size=1 (integer shares), zero commission, no daily limit. Quantity negative = USD amount (resolves to floor(USD/price) shares). Universe = S&P 500.
+
 ## Agent Notes
 
 ### First Run — Token & Account Setup
@@ -102,10 +125,14 @@ python crypto/api.py --action buy --symbol BTC/USDT --quantity 0.01
 ```python
 from finmeta_simulation_skill.ashare import buy as ashare_buy, get_account as ashare_account
 from finmeta_simulation_skill.crypto import buy as crypto_buy, get_account as crypto_account
+from finmeta_simulation_skill.usstock import buy as usstock_buy, get_account as usstock_account
 
 # A-Share — account_id optional (reads from env var / config.json)
 result = ashare_buy("600519.SH", 100, account_id=123)
 
 # Crypto — no account_id needed
 result = crypto_buy("BTC/USDT", 0.01)
+
+# US Stock — account_id optional (auto-creates personal account)
+result = usstock_buy("AAPL", 10)
 ```
